@@ -1,4 +1,3 @@
-# coding=utf-8
 from flask import render_template, redirect, request, url_for, flash
 from flask_login import login_user, logout_user, login_required, \
     current_user
@@ -8,6 +7,8 @@ from ..models import User
 from ..email import send_email
 from .forms import LoginForm, RegistrationForm, ChangePasswordForm,\
     PasswordResetRequestForm, PasswordResetForm, ChangeEmailForm
+from weibo import APIClient, APIError
+from ipdb import set_trace
 
 
 @auth.before_app_request
@@ -19,6 +20,41 @@ def before_request():
                 and request.endpoint[:5] != 'auth.' \
                 and request.endpoint != 'static':
             return redirect(url_for('auth.unconfirmed'))
+
+
+"""APP_ID = '461793798'
+APP_SECRET = '2ca31f6c781372de6bc99992ce33b1ed'
+CALLBACK_URL = 'http://46.101.12.56:5000/callback'
+
+
+def create_client():
+    return APIClient(APP_ID, APP_SECRET, CALLBACK_URL)
+
+
+@auth.route('/sinalogin', methods=['GET'])
+def sinalogin():
+    client = create_client()
+    return redirect(client.get_authorize_url())
+
+
+@auth.route('/callback', methods=['GET', 'POST'])
+def callback():
+    import ipdb
+    with ipdb.launch_ipdb_on_exception():
+        code = request.args.get('code')
+        client = create_client()
+        r = client.request_access_token(code)
+        access_token, expires, uid = r.access_token, r.expires, r.uid
+        client.set_access_token(access_token, expires)
+        u = client.users.show.get(uid=uid)
+        user = SinaUser.query.filter_by(id=uid).first()
+        if not user:
+            user = SinaUser(id=u.id, name=u.screen_name, status_count=u.statuses_count, friends_count=u.friends_count,
+                            followers_count=u.followers_count, auth_token=access_token, expired_time=expires)
+            db.session.add(user)
+            db.session.commit()
+        login_user(user)
+        return redirect(url_for('main.index'))"""
 
 
 @auth.route('/unconfirmed')
@@ -44,7 +80,7 @@ def login():
 @login_required
 def logout():
     logout_user()
-    flash(U'你已退出')
+    flash('You have been logged out.')
     return redirect(url_for('main.index'))
 
 
@@ -58,9 +94,9 @@ def register():
         db.session.add(user)
         db.session.commit()
         token = user.generate_confirmation_token()
-        send_email(user.email, U'验证你的账户',
+        send_email(user.email, 'Confirm Your Account',
                    'auth/email/confirm', user=user, token=token)
-        flash(U'一封验证邮件已发送到你的邮箱')
+        flash('A confirmation email has been sent to you by email.')
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', form=form)
 
@@ -71,9 +107,9 @@ def confirm(token):
     if current_user.confirmed:
         return redirect(url_for('main.index'))
     if current_user.confirm(token):
-        flash(U'你已完成验证，谢谢！')
+        flash('You have confirmed your account. Thanks!')
     else:
-        flash(U'确认链接无效或已过期')
+        flash('The confirmation link is invalid or has expired.')
     return redirect(url_for('main.index'))
 
 
@@ -83,7 +119,7 @@ def resend_confirmation():
     token = current_user.generate_confirmation_token()
     send_email(current_user.email, 'Confirm Your Account',
                'auth/email/confirm', user=current_user, token=token)
-    flash(U'新的确认电子邮件已通过电子邮件发送给您')
+    flash('A new confirmation email has been sent to you by email.')
     return redirect(url_for('main.index'))
 
 
@@ -95,7 +131,7 @@ def change_password():
         if current_user.verify_password(form.old_password.data):
             current_user.password = form.password.data
             db.session.add(current_user)
-            flash(U'您的密码已更新')
+            flash('Your password has been updated.')
             return redirect(url_for('main.index'))
         else:
             flash('Invalid password.')
@@ -111,12 +147,12 @@ def password_reset_request():
         user = User.query.filter_by(email=form.email.data).first()
         if user:
             token = user.generate_reset_token()
-            send_email(user.email, U'重设你的密码',
+            send_email(user.email, 'Reset Your Password',
                        'auth/email/reset_password',
                        user=user, token=token,
                        next=request.args.get('next'))
-        flash(U'有一封电子邮件，提供重置密码的说明 '
-              U'已发送')
+        flash('An email with instructions to reset your password has been '
+              'sent to you.')
         return redirect(url_for('auth.login'))
     return render_template('auth/reset_password.html', form=form)
 
@@ -131,7 +167,7 @@ def password_reset(token):
         if user is None:
             return redirect(url_for('main.index'))
         if user.reset_password(token, form.password.data):
-            flash(U'你的密码已更新')
+            flash('Your password has been updated.')
             return redirect(url_for('auth.login'))
         else:
             return redirect(url_for('main.index'))
@@ -146,14 +182,14 @@ def change_email_request():
         if current_user.verify_password(form.password.data):
             new_email = form.email.data
             token = current_user.generate_email_change_token(new_email)
-            send_email(new_email, U'验证你的邮箱地址',
+            send_email(new_email, 'Confirm your email address',
                        'auth/email/change_email',
                        user=current_user, token=token)
-            flash(U'一封重置密码的邮件 '
-                  U'已发送')
+            flash('An email with instructions to confirm your new email '
+                  'address has been sent to you.')
             return redirect(url_for('main.index'))
         else:
-            flash(U'无效的电子邮件或密码')
+            flash('Invalid email or password.')
     return render_template("auth/change_email.html", form=form)
 
 
@@ -161,7 +197,7 @@ def change_email_request():
 @login_required
 def change_email(token):
     if current_user.change_email(token):
-        flash(U'你的邮箱地址已更新')
+        flash('Your email address has been updated.')
     else:
-        flash(U'无效的请求')
+        flash('Invalid request.')
     return redirect(url_for('main.index'))

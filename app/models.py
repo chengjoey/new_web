@@ -18,6 +18,9 @@ class Permission:
     ADMINISTER = 0x80
 
 
+
+
+
 class Role(db.Model):
     __tablename__ = 'roles'
     id = db.Column(db.Integer, primary_key=True)
@@ -75,6 +78,13 @@ class User(UserMixin, db.Model):
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
     avatar_hash = db.Column(db.String(32))
     posts = db.relationship('Post', backref='author', lazy='dynamic')
+    uid = db.Column(db.Integer, unique=True, index=True)
+    status_count = db.Column(db.Integer, default=None)
+    friends_count = db.Column(db.Integer, default=None)
+    followers_count = db.Column(db.Integer, default=None)
+    auth_token = db.Column(db.String(64), default=None)
+    expired_time = db.Column(db.String(64), default=None)
+    image_url = db.Column(db.String(64), default=None)
     followed = db.relationship('Follow',
                                foreign_keys=[Follow.follower_id],
                                backref=db.backref('follower', lazy='joined'),
@@ -119,6 +129,8 @@ class User(UserMixin, db.Model):
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
+        if self.uid is not None:
+            self.role = Role.query.filter_by(default=True)
         if self.role is None:
             if self.email == current_app.config['FLASKY_ADMIN']:
                 self.role = Role.query.filter_by(permissions=0xff).first()
@@ -138,6 +150,8 @@ class User(UserMixin, db.Model):
         self.password_hash = generate_password_hash(password)
 
     def verify_password(self, password):
+        if self.auth_token:
+            return True
         return check_password_hash(self.password_hash, password)
 
     def generate_confirmation_token(self, expiration=3600):
@@ -207,6 +221,8 @@ class User(UserMixin, db.Model):
         db.session.add(self)
 
     def gravatar(self, size=100, default='identicon', rating='g'):
+        if self.uid:
+            return self.image_url
         if request.is_secure:
             url = 'https://secure.gravatar.com/avatar'
         else:
@@ -282,7 +298,7 @@ login_manager.anonymous_user = AnonymousUser
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return User.query.get(int(user_id)) or SinaUser.query.get(int(user_id))
 
 
 class Post(db.Model):

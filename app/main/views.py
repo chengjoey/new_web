@@ -1,14 +1,15 @@
-
 from flask import render_template, redirect, url_for, abort, flash, request,\
     current_app, make_response
-from flask_login import login_required, current_user
 from . import main
 from .forms import EditProfileForm, EditProfileAdminForm, PostForm,\
     CommentForm
 from .. import db
 from ..models import Permission, Role, User, Post, Comment
 from ..decorators import admin_required, permission_required
-
+from weibo import APIClient, APIError
+from ipdb import set_trace
+from flask_login import login_user, logout_user, login_required, \
+    current_user
 
 
 @main.route('/', methods=['GET', 'POST'])
@@ -32,8 +33,46 @@ def index():
         page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
         error_out=False)
     posts = pagination.items
+
     return render_template('index.html', form=form, posts=posts,
                            show_followed=show_followed, pagination=pagination)
+
+
+APP_ID = '461793798'
+APP_SECRET = '2ca31f6c781372de6bc99992ce33b1ed'
+CALLBACK_URL = 'http://46.101.12.56:5000/callback'
+
+
+def create_client():
+    return APIClient(APP_ID, APP_SECRET, CALLBACK_URL)
+
+
+@main.route('/sinalogin', methods=['GET'])
+def sinalogin():
+    client = create_client()
+    return redirect(client.get_authorize_url())
+
+
+@main.route('/callback', methods=['GET', 'POST'])
+def callback():
+    import ipdb
+    with ipdb.launch_ipdb_on_exception():
+        code = request.args.get('code')
+        client = create_client()
+        r = client.request_access_token(code)
+        access_token, expires, uid = r.access_token, r.expires, r.uid
+        client.set_access_token(access_token, expires)
+        u = client.users.show.get(uid=uid)
+        user = User.query.filter_by(uid=uid).first()
+        if not user:
+            user = User(username=u.screen_name, uid=u.id, status_count=u.statuses_count, friends_count=u.friends_count, email='847478051@qq.com',
+                    followers_count=u.followers_count, auth_token=access_token, expired_time=expires, image_url=u.avatar_large or u.profile_image_url)
+            db.session.add(user)
+            db.session.commit()
+        token = user.generate_confirmation_token()
+        user.confirm(token)
+        login_user(user)
+        return redirect(url_for('main.index'))
 
 
 @main.route('/user/<username>')

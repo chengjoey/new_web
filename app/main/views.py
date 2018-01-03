@@ -38,9 +38,9 @@ def index():
                            show_followed=show_followed, pagination=pagination)
 
 
-APP_ID = '461793798'
-APP_SECRET = '2ca31f6c781372de6bc99992ce33b1ed'
-CALLBACK_URL = 'http://46.101.12.56:5000/callback'
+APP_ID = 'your app id'
+APP_SECRET = 'you app secret'
+CALLBACK_URL = 'your callback url'
 
 
 def create_client():

@@ -29,6 +29,11 @@
                 {% endif %}
             </ul>
             <ul class="nav navbar-nav navbar-right">
+                {% if current_user.uid %}
+                <li><a href="{{ url_for('main.sinauser', username=current_user.username) }}"sinauser</a></li>
+                {% endif %}
+                </ul>
+            <ul class="nav navbar-nav navbar-right">
                 {% if current_user.can(Permission.MODERATE_COMMENTS) %}
                 <li><a href="{{ url_for('main.moderate') }}">Moderate Comments</a></li>
                 {% endif %}

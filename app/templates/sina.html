@@ -5,18 +5,13 @@
 
 {% block page_content %}
 <div class="page-header">
-    {% if user.image_url %}
         <img class="img-rounded profile-thumbnail" src="{{ user.image_url }}">
-    {% else %}
-        <img class="img-rounded profile-thumbnail" src="{{ user.gravatar(size=256) }}">
-    {% endif %}
     <div class="profile-header">
         <h1>{{ user.username }}</h1>
-        {% if user.name or user.location %}
+        {% if user.status_count or user.friends_count %}
         <p>
-            {% if user.name %}{{ user.name }}<br>{% endif %}
-            {% if user.location %}
-                From <a href="http://maps.google.com/?q={{ user.location }}">{{ user.location }}</a><br>
+            {% if user.status_count %}微博:{{ user.status_count }}篇<br>{% endif %}
+            {% if user.friends_count %}关注:{{ user.friends_count }}<br>
             {% endif %}
         </p>
         {% endif %}

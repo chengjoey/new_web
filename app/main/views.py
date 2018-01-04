@@ -38,9 +38,9 @@ def index():
                            show_followed=show_followed, pagination=pagination)
 
 
-APP_ID = 'your app id'
-APP_SECRET = 'you app secret'
-CALLBACK_URL = 'your callback url'
+APP_ID = '461793798'
+APP_SECRET = '2ca31f6c781372de6bc99992ce33b1ed'
+CALLBACK_URL = 'http://46.101.12.56:5000/callback'
 
 
 def create_client():
@@ -73,6 +73,18 @@ def callback():
         user.confirm(token)
         login_user(user)
         return redirect(url_for('main.index'))
+
+
+@main.route('/sina/<username>')
+def sinauser(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    page = request.args.get('page', 1, type=int)
+    pagination = user.posts.order_by(Post.timestamp.desc()).paginate(
+        page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
+        error_out=False)
+    posts = pagination.items
+    return render_template('sina.html', user=user, posts=posts,
+                           pagination=pagination)
 
 
 @main.route('/user/<username>')
